@@ -21,6 +21,6 @@ public class ModItemModelProvider extends ItemModelProvider {
     }
 
     private void registerSpawningEgg(RegistryObject<? extends Item> spawnEggItem) {
-        this.withExistingParent(spawnEggItem.getId().getPath(), modLoc("item/spawn_egg"));
+        this.withExistingParent(spawnEggItem.getId().getPath(), mcLoc("item/template_spawn_egg"));
     }
 }
