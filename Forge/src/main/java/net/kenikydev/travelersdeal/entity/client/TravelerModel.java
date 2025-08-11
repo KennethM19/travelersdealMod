@@ -84,7 +84,9 @@ public class TravelerModel<T extends TravelerEntity> extends HierarchicalModel<T
     }
 
     @Override
-    public void setupAnim(T p_102618_, float p_102619_, float p_102620_, float p_102621_, float p_102622_, float p_102623_) {
-
+    public void setupAnim(TravelerEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+        this.root().getAllParts().forEach(ModelPart::resetPose);
+        this.animateWalk(TravelerAnimations.TRAVELER_WALK,limbSwing,limbSwingAmount,1.2f,1.5f);
+        this.animate(entity.idleAnimationState, TravelerAnimations.TRAVELER_IDLE, ageInTicks, 0.8f);
     }
 }

@@ -6,7 +6,7 @@ import net.minecraft.client.animation.Keyframe;
 import net.minecraft.client.animation.KeyframeAnimations;
 
 public class TravelerAnimations {
-    public static final AnimationDefinition walk = AnimationDefinition.Builder.withLength(1.5F).looping()
+    public static final AnimationDefinition TRAVELER_WALK = AnimationDefinition.Builder.withLength(1.5F).looping()
             .addAnimation("right_arm", new AnimationChannel(AnimationChannel.Targets.ROTATION,
                     new Keyframe(0.0F, KeyframeAnimations.degreeVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.LINEAR),
                     new Keyframe(0.375F, KeyframeAnimations.degreeVec(-15.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.LINEAR),
@@ -33,7 +33,7 @@ public class TravelerAnimations {
             ))
             .build();
 
-    public static final AnimationDefinition idle = AnimationDefinition.Builder.withLength(3.0F).looping()
+    public static final AnimationDefinition TRAVELER_IDLE = AnimationDefinition.Builder.withLength(3.0F).looping()
             .addAnimation("right_arm", new AnimationChannel(AnimationChannel.Targets.POSITION,
                     new Keyframe(0.0F, KeyframeAnimations.posVec(0.0F, 0.0F, 0.0F), AnimationChannel.Interpolations.LINEAR),
                     new Keyframe(0.75F, KeyframeAnimations.posVec(0.0F, 0.2F, 0.0F), AnimationChannel.Interpolations.LINEAR),

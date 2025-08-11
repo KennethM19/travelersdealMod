@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -19,6 +20,9 @@ import net.minecraft.world.level.Level;
 import java.util.UUID;
 
 public class TravelerEntity extends PathfinderMob {
+
+    public final AnimationState idleAnimationState = new AnimationState();
+    private int idleAnimationTimeout = 0;
 
     private TravelerRequest currentRequest;
     private long requestStartTime;
@@ -39,14 +43,8 @@ public class TravelerEntity extends PathfinderMob {
     public void tick() {
         super.tick();
 
-        if (currentRequest != null && !level().isClientSide) {
-            long elapsed =  level().getGameTime() - requestStartTime;
-            long maxTime = 20L * 60L * 3L;
-
-            if (elapsed > maxTime) {
-                failRequest();
-            }
-
+        if (this.level().isClientSide()) {
+            this.setupAnimationStates();
         }
 
     }
@@ -130,6 +128,16 @@ public class TravelerEntity extends PathfinderMob {
         // Ejemplo simple: nivel de hostilidad según karma negativo
         if (karma < -2) {
             // spawnear más mobs o más fuertes
+        }
+    }
+
+    //Maneja animaciones
+    private void setupAnimationStates() {
+        if (this.idleAnimationTimeout <= 0) { //Controla la animación de reposo
+            this.idleAnimationTimeout = 40;
+            this.idleAnimationState.start(this.tickCount);
+        } else {
+            --this.idleAnimationTimeout;
         }
     }
 }
