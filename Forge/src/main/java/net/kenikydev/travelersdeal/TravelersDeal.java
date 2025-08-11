@@ -1,6 +1,11 @@
-package net.kenikydev.travelersdealmod;
+package net.kenikydev.travelersdeal;
 
 import com.mojang.logging.LogUtils;
+import net.kenikydev.travelersdeal.entity.ModEntities;
+import net.kenikydev.travelersdeal.entity.client.TravelerRenderer;
+import net.kenikydev.travelersdeal.item.ModCreativeModTabs;
+import net.kenikydev.travelersdeal.item.ModItems;
+import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -26,6 +31,12 @@ public class TravelersDeal
     {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        ModItems.register(modEventBus);
+
+        ModEntities.register(modEventBus);
+
+        ModCreativeModTabs.register(modEventBus);
+
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
@@ -48,7 +59,7 @@ public class TravelersDeal
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event)
         {
-
+            EntityRenderers.register(ModEntities.TRAVELER.get(), TravelerRenderer::new);
         }
     }
 }
