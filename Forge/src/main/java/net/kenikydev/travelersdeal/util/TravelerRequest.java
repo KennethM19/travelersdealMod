@@ -19,7 +19,7 @@ public class TravelerRequest {
 
     public static TravelerRequest generatedBasedOnProgress(Player player) {
         Random rand = new Random();
-        int stage = player.experienceLevel/10;
+        int stage = player.experienceLevel / 10;
         ItemStack request;
 
         if (stage < 2) {

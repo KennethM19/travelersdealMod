@@ -17,7 +17,7 @@ public class ModEntities {
     );
 
     public static final RegistryObject<EntityType<TravelerEntity>> TRAVELER = ENTITY_TYPES.register("traveler",
-            () -> EntityType.Builder.of(TravelerEntity::new, MobCategory.CREATURE).sized(1f,1f).build("traveler"));
+            () -> EntityType.Builder.of(TravelerEntity::new, MobCategory.CREATURE).sized(0.6f, 2f).build("traveler"));
 
     public static void register(IEventBus bus) {
         ENTITY_TYPES.register(bus);

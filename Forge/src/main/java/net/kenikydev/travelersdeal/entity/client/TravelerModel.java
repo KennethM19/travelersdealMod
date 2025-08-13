@@ -8,12 +8,16 @@ import net.minecraft.client.model.HierarchicalModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.model.geom.builders.*;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
 
 public class TravelerModel<T extends TravelerEntity> extends HierarchicalModel<T> {
     // This layer location should be baked with EntityRendererProvider.Context in the entity renderer and passed into this model's constructor
-    public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(TravelersDeal.MODID,"traveler"), "main");
+    public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(TravelersDeal.MODID, "traveler"), "main");
     private final ModelPart head;
     private final ModelPart hat;
     private final ModelPart body;
@@ -86,7 +90,7 @@ public class TravelerModel<T extends TravelerEntity> extends HierarchicalModel<T
     @Override
     public void setupAnim(TravelerEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
         this.root().getAllParts().forEach(ModelPart::resetPose);
-        this.animateWalk(TravelerAnimations.TRAVELER_WALK,limbSwing,limbSwingAmount,1.2f,1.5f);
+        this.animateWalk(TravelerAnimations.TRAVELER_WALK, limbSwing, limbSwingAmount, 1.2f, 1.5f);
         this.animate(entity.idleAnimationState, TravelerAnimations.TRAVELER_IDLE, ageInTicks, 0.8f);
     }
 }

@@ -14,6 +14,6 @@ public class TravelerRenderer extends MobRenderer<TravelerEntity, TravelerModel<
 
     @Override
     public ResourceLocation getTextureLocation(TravelerEntity entity) {
-        return ResourceLocation.fromNamespaceAndPath(TravelersDeal.MODID,"textures/entity/traveler/traveler.png");
+        return ResourceLocation.fromNamespaceAndPath(TravelersDeal.MODID, "textures/entity/traveler/traveler.png");
     }
 }

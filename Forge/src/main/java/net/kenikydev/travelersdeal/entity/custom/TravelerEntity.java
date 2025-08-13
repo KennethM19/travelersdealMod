@@ -1,27 +1,37 @@
 package net.kenikydev.travelersdeal.entity.custom;
 
+import net.kenikydev.travelersdeal.util.TravelerSavedData;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.*;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.PanicGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
+import java.util.UUID;
+
 public class TravelerEntity extends PathfinderMob {
 
     public final AnimationState idleAnimationState = new AnimationState();
     private int idleAnimationTimeout = 0;
-    private Item requestedItem = Items.APPLE;
-    private int requestedAmount = 5;
-    private boolean hasGreated = false;
+    private UUID targetPlayerUUID;
+    private long expireTime;
+    private int newKarma;
 
     public TravelerEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -48,33 +58,78 @@ public class TravelerEntity extends PathfinderMob {
     public void tick() {
         super.tick();
 
-        if (this.level().isClientSide()) {
-            this.setupAnimationStates();
-        }
-
-        if (!hasGreated && !level().isClientSide) {
-            sendMessageToNearbyPlayers("Bienvenido al mundo, necesitaré tu ayuda para sobrevivir acá. Espero contar contigo. Necesito " +
-                    requestedAmount + " " + requestedItem.getDescription().getString() + ".");
-            hasGreated = true;
+        if (this.level().isClientSide) {
+            setupAnimationStates();
+        } else {
+            if (expireTime > 0 && level().getGameTime() > expireTime) {
+                failRequest();
+                spawnHostileMobs();
+                this.discard();
+            }
         }
     }
 
     @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (level().isClientSide) return InteractionResult.SUCCESS;
+
+        TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
         ItemStack heldItem = player.getItemInHand(hand);
 
-        if (!level().isClientSide && heldItem.is(requestedItem)) {
-            if (heldItem.getCount() >= requestedAmount) {
-                heldItem.shrink(requestedAmount);
-                sendMessageToNearbyPlayers("¡Gracias! Con esto podré sobrevivir. ¡Hasta pronto!");
+        var request = data.getPendingRequest(player.getUUID());
+
+        if (request != null && heldItem.is(request.item())) {
+            if (heldItem.getCount() >= request.amount()) {
+                heldItem.shrink(request.amount());
+                data.clearPendingRequest(player.getUUID());
+
+                newKarma = data.getKarma(player.getUUID()) + 5;
+                data.setKarma(player.getUUID(), newKarma);
+                player.addItem(new ItemStack(Items.DIAMOND, 1));
+
+                sendMessageToNearbyPlayers("¡Muchas gracias!");
                 this.discard();
                 return InteractionResult.SUCCESS;
             } else {
-                sendMessageToNearbyPlayers("Todavia necesito más " + requestedItem.getDescription().getString() + ".");
+                sendMessageToNearbyPlayers("Aún me faltan " + (request.amount() - heldItem.getCount()) + " " +
+                        request.item().getDescription().getString());
             }
         }
+        return InteractionResult.CONSUME;
+    }
 
-        return InteractionResult.sidedSuccess(level().isClientSide);
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        boolean result = super.hurt(source, amount);
+        if (!level().isClientSide && source.getEntity() instanceof Player player) {
+            TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
+            sendMessageToNearbyPlayers("¡Me has herido! Esto tendrá consecuencias...");
+            newKarma = data.getKarma(player.getUUID()) - 10;
+            data.setKarma(player.getUUID(), newKarma);
+            spawnHostileMobs();
+
+            this.discard();
+        }
+        return result;
+    }
+
+    public void assignRequest(UUID playerid, Item item, int amount, long durationTicks) {
+        this.targetPlayerUUID = playerid;
+        this.expireTime = level().getGameTime() + durationTicks;
+        TravelerSavedData.get((ServerLevel) level()).setPendingRequest(playerid, item, amount, expireTime);
+        sendMessageToNearbyPlayers("¡Bienvenido! Necesito " + amount + " " + item.getDescription().getString());
+    }
+
+    private void failRequest() {
+        if (this.targetPlayerUUID != null) {
+            TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
+            data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - 5);
+            sendMessageToNearbyPlayers("Me has fallado");
+        }
+    }
+
+    private void sendMessageToNearbyPlayers(String text) {
+        this.level().players().forEach(p -> p.sendSystemMessage(Component.literal("[Traveler] " + text)));
     }
 
     //Maneja animaciones
@@ -87,7 +142,12 @@ public class TravelerEntity extends PathfinderMob {
         }
     }
 
-    private void sendMessageToNearbyPlayers(String text) {
-        this.level().players().forEach(p -> p.sendSystemMessage(Component.literal("[Traveler] " + text)));
+    private void spawnHostileMobs() {
+        ServerLevel serverLevel = (ServerLevel) level();
+        Zombie zombie = EntityType.ZOMBIE.create(serverLevel);
+        if (zombie != null) {
+            zombie.moveTo(getX(), getY(), getZ());
+            serverLevel.addFreshEntity(zombie);
+        }
     }
 }
