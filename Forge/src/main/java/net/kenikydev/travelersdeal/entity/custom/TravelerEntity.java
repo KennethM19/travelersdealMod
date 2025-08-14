@@ -1,6 +1,8 @@
 package net.kenikydev.travelersdeal.entity.custom;
 
+import net.kenikydev.travelersdeal.entity.ModEntities;
 import net.kenikydev.travelersdeal.util.TravelerSavedData;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -107,22 +109,45 @@ public class TravelerEntity extends PathfinderMob {
             newKarma = data.getKarma(player.getUUID()) - 10;
             data.setKarma(player.getUUID(), newKarma);
             spawnHostileMobs();
-
+            data.clearPendingRequest(player.getUUID());
             this.discard();
         }
         return result;
     }
 
-    public void assignRequest(UUID playerid, Item item, int amount, long durationTicks) {
+    public void assignRequest(UUID playerid, Item item, int amount, long durationTicks, Boolean firstRequest) {
+        String text;
         this.targetPlayerUUID = playerid;
         this.expireTime = level().getGameTime() + durationTicks;
         TravelerSavedData.get((ServerLevel) level()).setPendingRequest(playerid, item, amount, expireTime);
-        sendMessageToNearbyPlayers("¡Bienvenido! Necesito " + amount + " " + item.getDescription().getString());
+
+        if (firstRequest) {
+            text = "¡Bienvenido! ";
+        } else {
+            text = "";
+        }
+        sendMessageToNearbyPlayers(text + "Necesito " + amount + " " + item.getDescription().getString());
+    }
+
+    public static void spawnTraveler(ServerLevel serverLevel, BlockPos homePos, UUID playerId, TravelerSavedData data, boolean newRequest) {
+        TravelerEntity traveler = ModEntities.TRAVELER.get().create(serverLevel);
+        long durationTicks = 20 * 60 * 3;
+        if (traveler != null) {
+            traveler.moveTo(homePos.getX() + 2, homePos.getY(), homePos.getZ() + 2, 0, 0);
+            var req = data.getPendingRequest(playerId);
+            if (newRequest) {
+                traveler.assignRequest(playerId, Items.APPLE, 5, durationTicks, true);
+            } else if (req == null) {
+                traveler.assignRequest(playerId, Items.DIAMOND, 5, durationTicks, false);
+            }
+            serverLevel.addFreshEntity(traveler);
+        }
     }
 
     private void failRequest() {
         if (this.targetPlayerUUID != null) {
             TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
+            data.clearPendingRequest(targetPlayerUUID);
             data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - 5);
             sendMessageToNearbyPlayers("Me has fallado");
         }
