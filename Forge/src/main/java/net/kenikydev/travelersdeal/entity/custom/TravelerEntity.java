@@ -76,7 +76,8 @@ public class TravelerEntity extends PathfinderMob {
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (level().isClientSide) return InteractionResult.SUCCESS;
 
-        TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
+        ServerLevel serverLevel = (ServerLevel) level();
+        TravelerSavedData data = TravelerSavedData.get(serverLevel);
         ItemStack heldItem = player.getItemInHand(hand);
 
         var request = data.getPendingRequest(player.getUUID());
@@ -84,7 +85,7 @@ public class TravelerEntity extends PathfinderMob {
         if (request != null && heldItem.is(request.item())) {
             if (heldItem.getCount() >= request.amount()) {
                 heldItem.shrink(request.amount());
-                data.clearPendingRequest(player.getUUID());
+                data.clearPendingRequest(player.getUUID(), serverLevel);
 
                 newKarma = data.getKarma(player.getUUID()) + 5;
                 data.setKarma(player.getUUID(), newKarma);
@@ -105,12 +106,13 @@ public class TravelerEntity extends PathfinderMob {
     public boolean hurt(DamageSource source, float amount) {
         boolean result = super.hurt(source, amount);
         if (!level().isClientSide && source.getEntity() instanceof Player player) {
-            TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
+            ServerLevel serverLevel = (ServerLevel) level();
+            TravelerSavedData data = TravelerSavedData.get(serverLevel);
             sendMessageToNearbyPlayers("¡Me has herido! Esto tendrá consecuencias...");
             newKarma = data.getKarma(player.getUUID()) - 10;
             data.setKarma(player.getUUID(), newKarma);
             spawnHostileMobs();
-            data.clearPendingRequest(player.getUUID());
+            data.clearPendingRequest(player.getUUID(), serverLevel);
             this.discard();
         }
         return result;
@@ -130,7 +132,14 @@ public class TravelerEntity extends PathfinderMob {
         sendMessageToNearbyPlayers(text + "Necesito " + amount + " " + item.getDescription().getString());
     }
 
-    public static void spawnTraveler(ServerLevel serverLevel, BlockPos homePos, UUID playerId, TravelerSavedData data, boolean newRequest) {
+    public static void spawnTraveler(ServerLevel serverLevel, BlockPos homePos, UUID playerId, TravelerSavedData data, boolean firstRequest) {
+        long currentTime = serverLevel.getDayTime();
+        TravelerEntity traveler = ModEntities.TRAVELER.get().create(serverLevel);
+        long durationTicks = 20 * 60 * 3;
+
+        if (currentTime < data.getNextTravelerSpawnTime()) {
+            return;
+        }
 
         boolean travelerExists = false;
         for (ServerLevel level : serverLevel.getServer().getAllLevels()) {
@@ -153,12 +162,10 @@ public class TravelerEntity extends PathfinderMob {
             return;
         }
 
-        TravelerEntity traveler = ModEntities.TRAVELER.get().create(serverLevel);
-        long durationTicks = 20 * 60 * 3;
         if (traveler != null) {
             traveler.moveTo(homePos.getX() + 2, homePos.getY(), homePos.getZ() + 2, 0, 0);
             var req = data.getPendingRequest(playerId);
-            if (newRequest) {
+            if (firstRequest) {
                 traveler.assignRequest(playerId, Items.APPLE, 5, durationTicks, true);
             } else if (req == null) {
                 traveler.assignRequest(playerId, Items.DIAMOND, 5, durationTicks, false);
@@ -169,8 +176,9 @@ public class TravelerEntity extends PathfinderMob {
 
     private void failRequest() {
         if (this.targetPlayerUUID != null) {
-            TravelerSavedData data = TravelerSavedData.get((ServerLevel) level());
-            data.clearPendingRequest(targetPlayerUUID);
+            ServerLevel serverLevel = (ServerLevel) level();
+            TravelerSavedData data = TravelerSavedData.get(serverLevel);
+            data.clearPendingRequest(targetPlayerUUID, serverLevel);
             data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - 5);
             sendMessageToNearbyPlayers("Me has fallado");
         }

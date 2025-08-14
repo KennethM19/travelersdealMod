@@ -1,5 +1,6 @@
 package net.kenikydev.travelersdeal.util;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -9,9 +10,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.core.BlockPos;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class TravelerSavedData extends SavedData {
 
@@ -20,6 +24,8 @@ public class TravelerSavedData extends SavedData {
     private final Map<UUID, Integer> playersKarma = new HashMap<>();
     private final Map<UUID, PendingRequest> pendingRequests = new HashMap<>();
     private final Set<UUID> seenPlayers = new HashSet<>();
+
+    private long nextTravelerSpawnTime = 0;
 
     //Constructor vacío para datos nuevos
     public TravelerSavedData() {
@@ -65,6 +71,9 @@ public class TravelerSavedData extends SavedData {
             );
             data.pendingRequests.put(requestTag.getUUID("Player"), request);
         }
+
+        data.nextTravelerSpawnTime = tag.getLong("NextTravelerSpawnTime");
+
         return data;
     }
 
@@ -110,6 +119,8 @@ public class TravelerSavedData extends SavedData {
             requestList.add(rTag);
         }
         tag.put("Requests", requestList);
+
+        tag.putLong("NextTravelerSpawnTime", nextTravelerSpawnTime);
 
         return tag;
     }
@@ -162,8 +173,21 @@ public class TravelerSavedData extends SavedData {
         return pendingRequests.containsKey(playerId);
     }
 
-    public void clearPendingRequest(UUID playerId) {
+    public void clearPendingRequest(UUID playerId, ServerLevel serverLevel) {
         pendingRequests.remove(playerId);
+
+        long nextSpawnTime = serverLevel.getDayTime() + 72000;
+        setNextTravelerSpawnTime(nextSpawnTime);
+
+        setDirty();
+    }
+
+    public long getNextTravelerSpawnTime() {
+        return nextTravelerSpawnTime;
+    }
+
+    public void setNextTravelerSpawnTime(long nextTravelerSpawnTime) {
+        this.nextTravelerSpawnTime = nextTravelerSpawnTime;
         setDirty();
     }
 }
