@@ -24,6 +24,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 
 import java.util.UUID;
 
@@ -130,6 +131,28 @@ public class TravelerEntity extends PathfinderMob {
     }
 
     public static void spawnTraveler(ServerLevel serverLevel, BlockPos homePos, UUID playerId, TravelerSavedData data, boolean newRequest) {
+
+        boolean travelerExists = false;
+        for (ServerLevel level : serverLevel.getServer().getAllLevels()) {
+            if (!level.getEntitiesOfClass(
+                    TravelerEntity.class,
+                    new AABB(
+                            level.getWorldBorder().getMinX(), level.getMinBuildHeight(),
+                            level.getWorldBorder().getMinZ(), level.getWorldBorder().getMaxX(),
+                            level.getMaxBuildHeight(), level.getWorldBorder().getMaxZ()
+                    ),
+                    e -> true
+            ).isEmpty()) {
+                travelerExists = true;
+                break;
+            }
+        }
+
+        // Si ya hay uno, no hacer nada
+        if (travelerExists) {
+            return;
+        }
+
         TravelerEntity traveler = ModEntities.TRAVELER.get().create(serverLevel);
         long durationTicks = 20 * 60 * 3;
         if (traveler != null) {
