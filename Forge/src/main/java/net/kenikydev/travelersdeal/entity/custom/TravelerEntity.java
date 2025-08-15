@@ -140,7 +140,8 @@ public class TravelerEntity extends PathfinderMob {
         }
 
         if (traveler != null) {
-            traveler.moveTo(homePos.getX() + 2, homePos.getY(), homePos.getZ() + 2, 0, 0);
+            BlockPos safePos = findSafeSpawnPos(serverLevel, homePos.offset(2, 0, 2), 5);
+            traveler.moveTo(safePos, 0, 0);
             var req = data.getPendingRequest(playerId);
             if (firstRequest) {
                 traveler.assignRequest(playerId, true);
@@ -321,5 +322,63 @@ public class TravelerEntity extends PathfinderMob {
                 serverLevel.addFreshEntity(mob);
             }
         }
+    }
+
+    private static BlockPos findSafeSpawnPos(ServerLevel level, BlockPos basePos, int searchRadius) {
+        BlockPos.MutableBlockPos pos = basePos.mutable();
+
+        // Subir si está atrapado
+        while (!level.getBlockState(pos).isAir() && pos.getY() < level.getMaxBuildHeight()) {
+            pos.move(0, 1, 0);
+        }
+
+        // Bajar si está flotando
+        while (level.getBlockState(pos.below()).isAir() && pos.getY() > level.getMinBuildHeight()) {
+            pos.move(0, -1, 0);
+        }
+
+        if (isSafeSpawn(level, pos)) {
+            return pos.immutable();
+        }
+
+        // Buscar en el radio
+        for (int r = 1; r <= searchRadius; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    BlockPos candidate = pos.offset(dx, 0, dz);
+                    BlockPos adjusted = adjustVertical(level, candidate);
+
+                    if (isSafeSpawn(level, adjusted)) {
+                        return adjusted;
+                    }
+                }
+            }
+        }
+
+        return basePos;
+    }
+
+    private static boolean isSafeSpawn(ServerLevel level, BlockPos pos) {
+        return level.getBlockState(pos.below()).isSolid() &&
+                level.getBlockState(pos).isAir() &&
+                level.getBlockState(pos.above()).isAir() &&
+                !level.getFluidState(pos).isSource() && // Evita agua/lava en el bloque actual
+                !level.getFluidState(pos.above()).isSource(); // Evita agua/lava en la cabeza
+    }
+
+    private static BlockPos adjustVertical(ServerLevel level, BlockPos start) {
+        BlockPos.MutableBlockPos pos = start.mutable();
+
+        // Subir si está atrapado
+        while (!level.getBlockState(pos).isAir() && pos.getY() < level.getMaxBuildHeight()) {
+            pos.move(0, 1, 0);
+        }
+
+        // Bajar si está flotando
+        while (level.getBlockState(pos.below()).isAir() && pos.getY() > level.getMinBuildHeight()) {
+            pos.move(0, -1, 0);
+        }
+
+        return pos.immutable();
     }
 }
