@@ -3,5 +3,7 @@
 
   "creativetab.travelersdeal_tab": "Traveler's Deal Mod",
 
-  "entity.travelersdeal.traveler":"Traveler"
+  "entity.travelersdeal.traveler":"Traveler",
+
+  "effect.travelersdeal.request_effect": "Request"
 }

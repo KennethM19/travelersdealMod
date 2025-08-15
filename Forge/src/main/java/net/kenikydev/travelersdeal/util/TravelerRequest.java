@@ -59,15 +59,15 @@ public class TravelerRequest {
     }
 
     static {
-        HOSTILE_POOLS.put(new int[]{-5, -15}, Arrays.asList(
+        HOSTILE_POOLS.put(new int[]{-15, -5}, Arrays.asList(
                 new HostileOptions(EntityType.ZOMBIE, 1, 3),
                 new HostileOptions(EntityType.SKELETON, 1, 2)
         ));
-        HOSTILE_POOLS.put(new int[]{-16, -40}, Arrays.asList(
+        HOSTILE_POOLS.put(new int[]{-40, -16}, Arrays.asList(
                 new HostileOptions(EntityType.SKELETON, 2, 4),
                 new HostileOptions(EntityType.SPIDER, 1, 3)
         ));
-        HOSTILE_POOLS.put(new int[]{-41, -60}, Arrays.asList(
+        HOSTILE_POOLS.put(new int[]{-60, -41}, Arrays.asList(
                 new HostileOptions(EntityType.CREEPER, 1, 2),
                 new HostileOptions(EntityType.ENDERMAN, 1, 1)
         ));

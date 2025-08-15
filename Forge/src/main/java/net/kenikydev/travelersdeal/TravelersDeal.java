@@ -1,6 +1,7 @@
 package net.kenikydev.travelersdeal;
 
 import com.mojang.logging.LogUtils;
+import net.kenikydev.travelersdeal.effect.ModEffects;
 import net.kenikydev.travelersdeal.entity.ModEntities;
 import net.kenikydev.travelersdeal.entity.client.TravelerRenderer;
 import net.kenikydev.travelersdeal.item.ModCreativeModTabs;
@@ -36,6 +37,8 @@ public class TravelersDeal
         ModEntities.register(modEventBus);
 
         ModCreativeModTabs.register(modEventBus);
+
+        ModEffects.register(modEventBus);
 
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);

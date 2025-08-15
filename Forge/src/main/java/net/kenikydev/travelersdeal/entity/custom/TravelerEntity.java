@@ -1,14 +1,17 @@
 package net.kenikydev.travelersdeal.entity.custom;
 
+import net.kenikydev.travelersdeal.effect.ModEffects;
 import net.kenikydev.travelersdeal.entity.ModEntities;
 import net.kenikydev.travelersdeal.util.TravelerRequest;
 import net.kenikydev.travelersdeal.util.TravelerSavedData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
@@ -46,9 +49,8 @@ public class TravelerEntity extends PathfinderMob {
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this)); //Flotar en agua
         this.goalSelector.addGoal(1, new PanicGoal(this, 1.2D)); //Huir en peligro
-        this.goalSelector.addGoal(3, new WaterAvoidingRandomStrollGoal(this, 0.8D)); //Caminar aleatoriamente
-        this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 8.0F)); //Mirar a jugadores cercanos
-        this.goalSelector.addGoal(5, new RandomLookAroundGoal(this)); //Girar la cabeza aleatoriamente
+        this.goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 8.0F)); //Mirar a jugadores cercanos
+        this.goalSelector.addGoal(3, new RandomLookAroundGoal(this)); //Girar la cabeza aleatoriamente
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -169,15 +171,24 @@ public class TravelerEntity extends PathfinderMob {
 
         int amount = chosen.minAmount + level().random.nextInt(chosen.maxAmount - chosen.minAmount + 1);
 
-        long durationTicks = 20 * 60 * 3;
+        long durationTicks = 20 * 60 * 3; // 3 minutos
 
-        // Guardar datos del pedido en TravelerSavedData
+        // Guardar datos del pedido
         this.targetPlayerUUID = playerId;
         this.expireTime = level().getGameTime() + durationTicks;
         TravelerSavedData.get((ServerLevel) level()).setPendingRequest(playerId, chosen.item, amount, expireTime);
 
-        // Mensaje al jugador
-        String text = firstRequest ? "¡Bienvenido! " : "";
+        ServerLevel serverLevel = (ServerLevel) level();
+        ServerPlayer serverPlayer = serverLevel.getServer().getPlayerList().getPlayer(playerId);
+        if (serverPlayer != null) {
+            serverPlayer.addEffect(new MobEffectInstance(
+                    ModEffects.REQUEST_EFFECT.getHolder().get(),
+                    (int) durationTicks,
+                    0
+            ));
+        }
+
+        String text = firstRequest ? "¡Bienvenido!\nAl parecer nos perdimos en este lugar.\n¿Qué tal si nos ayudamos?\n" : "";
         sendMessageToNearbyPlayers(text + "Necesito " + amount + " " + chosen.item.getDescription().getString());
     }
 
@@ -186,6 +197,11 @@ public class TravelerEntity extends PathfinderMob {
             ServerLevel serverLevel = (ServerLevel) level();
             TravelerSavedData data = TravelerSavedData.get(serverLevel);
             data.clearPendingRequest(targetPlayerUUID, serverLevel);
+
+            if (player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.removeEffect(ModEffects.REQUEST_EFFECT.getHolder().get());
+            }
+
             data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) + 5);
 
             int karma = data.getKarma(targetPlayerUUID);
@@ -221,8 +237,14 @@ public class TravelerEntity extends PathfinderMob {
             ServerLevel serverLevel = (ServerLevel) level();
             TravelerSavedData data = TravelerSavedData.get(serverLevel);
             data.clearPendingRequest(targetPlayerUUID, serverLevel);
+
+            ServerPlayer serverPlayer = serverLevel.getServer().getPlayerList().getPlayer(targetPlayerUUID);
+            if (serverPlayer != null) {
+                serverPlayer.removeEffect(ModEffects.REQUEST_EFFECT.getHolder().get());
+            }
+
             data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - karma);
-            sendMessageToNearbyPlayers("Me has fallado: " + data.getKarma(targetPlayerUUID));
+            sendMessageToNearbyPlayers("Me has fallado: ");
             spawnHostileMobs(data);
             this.discard();
         }
