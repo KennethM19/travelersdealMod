@@ -6,6 +6,7 @@ import net.kenikydev.travelersdeal.util.TravelerRequest;
 import net.kenikydev.travelersdeal.util.TravelerSavedData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -21,7 +22,6 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -68,6 +68,7 @@ public class TravelerEntity extends PathfinderMob {
             setupAnimationStates();
         } else {
             if (expireTime > 0 && level().getGameTime() > expireTime) {
+                sendMessageToNearbyPlayers(Component.translatable("dialog.traveler.fail"));
                 failRequest(5);
             }
         }
@@ -89,8 +90,11 @@ public class TravelerEntity extends PathfinderMob {
                 reward(player);
                 return InteractionResult.SUCCESS;
             } else {
-                sendMessageToNearbyPlayers("Aún me faltan " + (request.amount() - heldItem.getCount()) + " " +
-                        request.item().getDescription().getString());
+                sendMessageToNearbyPlayers(Component.translatable(
+                        "dialog.traveler.need",
+                        request.amount() - heldItem.getCount(),
+                        request.item().getDescription()
+                ));
             }
         }
         return InteractionResult.CONSUME;
@@ -100,7 +104,7 @@ public class TravelerEntity extends PathfinderMob {
     public boolean hurt(DamageSource source, float amount) {
         boolean result = super.hurt(source, amount);
         if (!level().isClientSide && source.getEntity() instanceof Player) {
-            sendMessageToNearbyPlayers("¡Me has herido! Esto tendrá consecuencias...");
+            sendMessageToNearbyPlayers(Component.translatable("dialog.traveler.hurt"));
             failRequest(10);
         }
         return result;
@@ -188,8 +192,16 @@ public class TravelerEntity extends PathfinderMob {
             ));
         }
 
-        String text = firstRequest ? "¡Bienvenido!\nAl parecer nos perdimos en este lugar.\n¿Qué tal si nos ayudamos?\n" : "";
-        sendMessageToNearbyPlayers(text + "Necesito " + amount + " " + chosen.item.getDescription().getString());
+        MutableComponent message = firstRequest
+                ? Component.translatable("dialog.traveler.welcome")
+                : Component.empty();
+
+        message = message.append(
+                Component.translatable("dialog.traveler.need", amount, chosen.item.getDescription())
+        );
+
+        sendMessageToNearbyPlayers(message);
+
     }
 
     private void reward(Player player) {
@@ -221,7 +233,7 @@ public class TravelerEntity extends PathfinderMob {
                         .orElse(Collections.emptyList());
             }
 
-            sendMessageToNearbyPlayers("¡Muchas gracias!");
+            sendMessageToNearbyPlayers(Component.translatable("dialog.traveler.thanks"));
 
             if (!rewardOptions.isEmpty()) {
                 TravelerRequest.RewardsOptions chosenReward = rewardOptions.get(level().random.nextInt(rewardOptions.size()));
@@ -244,14 +256,16 @@ public class TravelerEntity extends PathfinderMob {
             }
 
             data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - karma);
-            sendMessageToNearbyPlayers("Me has fallado: ");
             spawnHostileMobs(data);
             this.discard();
         }
     }
 
-    private void sendMessageToNearbyPlayers(String text) {
-        this.level().players().forEach(p -> p.sendSystemMessage(Component.literal("[Traveler] " + text)));
+    private void sendMessageToNearbyPlayers(Component message) {
+        Component prefix = Component.translatable("dialog.traveler.traveler");
+        this.level().players().forEach(p ->
+                p.sendSystemMessage(prefix.copy().append(message))
+        );
     }
 
     //Maneja animaciones

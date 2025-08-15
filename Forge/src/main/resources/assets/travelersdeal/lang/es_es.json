@@ -1,0 +1,13 @@
+{
+  "item.travelersdeal.traveler_spawn_egg": "Huevo de Viajero",
+  "creativetab.travelersdeal_tab": "Mod Trato del Viajero",
+  "entity.travelersdeal.traveler": "Viajero",
+  "effect.travelersdeal.request_effect": "Petición",
+  "dialog.traveler.welcome": "¡Hola!\nParece que nos hemos perdido en este lugar...\n¿Y si nos echamos una mano?\n",
+  "dialog.traveler.hurt": "¡Ay! Me has hecho daño... Esto no va a quedar así.",
+  "dialog.traveler.need": "Necesito %s %s ",
+  "dialog.traveler.fail": "Me has fallado...",
+  "dialog.traveler.still": "Todavía me falta ",
+  "dialog.traveler.thanks": "¡Te lo agradezco muchísimo!",
+  "dialog.traveler.traveler": "[Viajero] "
+}

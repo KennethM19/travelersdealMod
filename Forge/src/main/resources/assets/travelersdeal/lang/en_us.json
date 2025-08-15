@@ -1,9 +1,13 @@
 {
   "item.travelersdeal.traveler_spawn_egg": "Traveler Egg",
-
   "creativetab.travelersdeal_tab": "Traveler's Deal Mod",
-
   "entity.travelersdeal.traveler":"Traveler",
-
-  "effect.travelersdeal.request_effect": "Request"
+  "effect.travelersdeal.request_effect": "Request",
+  "dialog.traveler.welcome": "Hey there!\nLooks like we got lost in this place...\nHow about we help each other out?\n",
+  "dialog.traveler.hurt": "Ouch! You hurt me... This won't go unnoticed.",
+  "dialog.traveler.need": "I need %s %s ",
+  "dialog.traveler.fail": "You let me down...",
+  "dialog.traveler.still": "I'm still missing ",
+  "dialog.traveler.thanks": "Thanks a ton!",
+  "dialog.traveler.traveler": "[Traveler] "
 }
