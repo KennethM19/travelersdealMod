@@ -1,6 +1,7 @@
 package net.kenikydev.travelersdeal.entity.custom;
 
 import net.kenikydev.travelersdeal.entity.ModEntities;
+import net.kenikydev.travelersdeal.util.TravelerRequest;
 import net.kenikydev.travelersdeal.util.TravelerSavedData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -18,14 +19,15 @@ import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class TravelerEntity extends PathfinderMob {
@@ -34,7 +36,6 @@ public class TravelerEntity extends PathfinderMob {
     private int idleAnimationTimeout = 0;
     private UUID targetPlayerUUID;
     private long expireTime;
-    private int newKarma;
 
     public TravelerEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -65,9 +66,7 @@ public class TravelerEntity extends PathfinderMob {
             setupAnimationStates();
         } else {
             if (expireTime > 0 && level().getGameTime() > expireTime) {
-                failRequest();
-                spawnHostileMobs();
-                this.discard();
+                failRequest(5);
             }
         }
     }
@@ -85,14 +84,7 @@ public class TravelerEntity extends PathfinderMob {
         if (request != null && heldItem.is(request.item())) {
             if (heldItem.getCount() >= request.amount()) {
                 heldItem.shrink(request.amount());
-                data.clearPendingRequest(player.getUUID(), serverLevel);
-
-                newKarma = data.getKarma(player.getUUID()) + 5;
-                data.setKarma(player.getUUID(), newKarma);
-                player.addItem(new ItemStack(Items.DIAMOND, 1));
-
-                sendMessageToNearbyPlayers("¡Muchas gracias!");
-                this.discard();
+                reward(player);
                 return InteractionResult.SUCCESS;
             } else {
                 sendMessageToNearbyPlayers("Aún me faltan " + (request.amount() - heldItem.getCount()) + " " +
@@ -105,37 +97,16 @@ public class TravelerEntity extends PathfinderMob {
     @Override
     public boolean hurt(DamageSource source, float amount) {
         boolean result = super.hurt(source, amount);
-        if (!level().isClientSide && source.getEntity() instanceof Player player) {
-            ServerLevel serverLevel = (ServerLevel) level();
-            TravelerSavedData data = TravelerSavedData.get(serverLevel);
+        if (!level().isClientSide && source.getEntity() instanceof Player) {
             sendMessageToNearbyPlayers("¡Me has herido! Esto tendrá consecuencias...");
-            newKarma = data.getKarma(player.getUUID()) - 10;
-            data.setKarma(player.getUUID(), newKarma);
-            spawnHostileMobs();
-            data.clearPendingRequest(player.getUUID(), serverLevel);
-            this.discard();
+            failRequest(10);
         }
         return result;
-    }
-
-    public void assignRequest(UUID playerid, Item item, int amount, long durationTicks, Boolean firstRequest) {
-        String text;
-        this.targetPlayerUUID = playerid;
-        this.expireTime = level().getGameTime() + durationTicks;
-        TravelerSavedData.get((ServerLevel) level()).setPendingRequest(playerid, item, amount, expireTime);
-
-        if (firstRequest) {
-            text = "¡Bienvenido! ";
-        } else {
-            text = "";
-        }
-        sendMessageToNearbyPlayers(text + "Necesito " + amount + " " + item.getDescription().getString());
     }
 
     public static void spawnTraveler(ServerLevel serverLevel, BlockPos homePos, UUID playerId, TravelerSavedData data, boolean firstRequest) {
         long currentTime = serverLevel.getDayTime();
         TravelerEntity traveler = ModEntities.TRAVELER.get().create(serverLevel);
-        long durationTicks = 20 * 60 * 3;
 
         if (currentTime < data.getNextTravelerSpawnTime()) {
             return;
@@ -166,21 +137,94 @@ public class TravelerEntity extends PathfinderMob {
             traveler.moveTo(homePos.getX() + 2, homePos.getY(), homePos.getZ() + 2, 0, 0);
             var req = data.getPendingRequest(playerId);
             if (firstRequest) {
-                traveler.assignRequest(playerId, Items.APPLE, 5, durationTicks, true);
+                traveler.assignRequest(playerId, true);
             } else if (req == null) {
-                traveler.assignRequest(playerId, Items.DIAMOND, 5, durationTicks, false);
+                traveler.assignRequest(playerId, false);
             }
             serverLevel.addFreshEntity(traveler);
         }
     }
 
-    private void failRequest() {
+    private void assignRequest(UUID playerId, Boolean firstRequest) {
+        long daysPlayed = level().getDayTime() / 24000L;
+
+        List<TravelerRequest.RequestOption> options = null;
+        for (Map.Entry<int[], List<TravelerRequest.RequestOption>> entry : TravelerRequest.REQUEST_POOLS.entrySet()) {
+            int[] range = entry.getKey();
+            if (daysPlayed >= range[0] && daysPlayed <= range[1]) {
+                options = entry.getValue();
+                break;
+            }
+        }
+
+        if (options == null) {
+            options = TravelerRequest.REQUEST_POOLS.values().stream()
+                    .reduce((first, second) -> second)
+                    .orElse(Collections.emptyList());
+        }
+
+        if (options.isEmpty()) return;
+
+        TravelerRequest.RequestOption chosen = options.get(level().random.nextInt(options.size()));
+
+        int amount = chosen.minAmount + level().random.nextInt(chosen.maxAmount - chosen.minAmount + 1);
+
+        long durationTicks = 20 * 60 * 3;
+
+        // Guardar datos del pedido en TravelerSavedData
+        this.targetPlayerUUID = playerId;
+        this.expireTime = level().getGameTime() + durationTicks;
+        TravelerSavedData.get((ServerLevel) level()).setPendingRequest(playerId, chosen.item, amount, expireTime);
+
+        // Mensaje al jugador
+        String text = firstRequest ? "¡Bienvenido! " : "";
+        sendMessageToNearbyPlayers(text + "Necesito " + amount + " " + chosen.item.getDescription().getString());
+    }
+
+    private void reward(Player player) {
         if (this.targetPlayerUUID != null) {
             ServerLevel serverLevel = (ServerLevel) level();
             TravelerSavedData data = TravelerSavedData.get(serverLevel);
             data.clearPendingRequest(targetPlayerUUID, serverLevel);
-            data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - 5);
-            sendMessageToNearbyPlayers("Me has fallado");
+            data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) + 5);
+
+            int karma = data.getKarma(targetPlayerUUID);
+
+            List<TravelerRequest.RewardsOptions> rewardOptions = null;
+            for (Map.Entry<int[], List<TravelerRequest.RewardsOptions>> entry : TravelerRequest.REWARD_POOLS.entrySet()) {
+                int[] range = entry.getKey();
+                if (karma >= range[0] && karma <= range[1]) {
+                    rewardOptions = entry.getValue();
+                    break;
+                }
+            }
+
+            if (rewardOptions == null) {
+                rewardOptions = TravelerRequest.REWARD_POOLS.values().stream()
+                        .reduce((first, second) -> second)
+                        .orElse(Collections.emptyList());
+            }
+
+            sendMessageToNearbyPlayers("¡Muchas gracias!");
+
+            if (!rewardOptions.isEmpty()) {
+                TravelerRequest.RewardsOptions chosenReward = rewardOptions.get(level().random.nextInt(rewardOptions.size()));
+                player.addItem(new ItemStack(chosenReward.item, chosenReward.amount));
+            }
+
+            this.discard();
+        }
+    }
+
+    private void failRequest(int karma) {
+        if (this.targetPlayerUUID != null) {
+            ServerLevel serverLevel = (ServerLevel) level();
+            TravelerSavedData data = TravelerSavedData.get(serverLevel);
+            data.clearPendingRequest(targetPlayerUUID, serverLevel);
+            data.setKarma(targetPlayerUUID, data.getKarma(targetPlayerUUID) - karma);
+            sendMessageToNearbyPlayers("Me has fallado: " + data.getKarma(targetPlayerUUID));
+            spawnHostileMobs(data);
+            this.discard();
         }
     }
 
@@ -198,12 +242,48 @@ public class TravelerEntity extends PathfinderMob {
         }
     }
 
-    private void spawnHostileMobs() {
+    private void spawnHostileMobs(TravelerSavedData data) {
         ServerLevel serverLevel = (ServerLevel) level();
-        Zombie zombie = EntityType.ZOMBIE.create(serverLevel);
-        if (zombie != null) {
-            zombie.moveTo(getX(), getY(), getZ());
-            serverLevel.addFreshEntity(zombie);
+
+        // Obtener karma actual del jugador
+        int karma = data.getKarma(targetPlayerUUID);
+
+        if (karma >= 0) {
+            return;
+        }
+        // Buscar opciones según el karma
+        List<TravelerRequest.HostileOptions> hostileOptions = null;
+        for (Map.Entry<int[], List<TravelerRequest.HostileOptions>> entry : TravelerRequest.HOSTILE_POOLS.entrySet()) {
+            int[] range = entry.getKey();
+            if (karma >= range[0] && karma <= range[1]) {
+                hostileOptions = entry.getValue();
+                break;
+            }
+        }
+
+        // Si no hay rango, usar el último
+        if (hostileOptions == null) {
+            hostileOptions = TravelerRequest.HOSTILE_POOLS.values().stream()
+                    .reduce((first, second) -> second)
+                    .orElse(Collections.emptyList());
+        }
+
+        // Si no hay nada, salir
+        if (hostileOptions.isEmpty()) return;
+
+        // Elegir mob aleatorio del pool
+        TravelerRequest.HostileOptions chosen = hostileOptions.get(level().random.nextInt(hostileOptions.size()));
+
+        // Determinar cantidad aleatoria dentro del rango
+        int count = chosen.minCount + level().random.nextInt(chosen.maxCount - chosen.minCount + 1);
+
+        // Spawnear
+        for (int i = 0; i < count; i++) {
+            Monster mob = chosen.mobType.create(serverLevel);
+            if (mob != null) {
+                mob.moveTo(getX() + level().random.nextDouble() * 3 - 1.5, getY(), getZ() + level().random.nextDouble() * 3 - 1.5);
+                serverLevel.addFreshEntity(mob);
+            }
         }
     }
 }

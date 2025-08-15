@@ -62,7 +62,6 @@ public class ModEvents {
             if (travelerExists) continue;
 
             long nextSpawnTick = data.getNextTravelerSpawnTime();
-            System.out.println(nextSpawnTick + "----" + gameTime);
             if (nextSpawnTick != 0 && gameTime >= nextSpawnTick) {
                 BlockPos homePos = data.getHomePos(playerId);
                 if (homePos == null) homePos = serverLevel.getSharedSpawnPos();
